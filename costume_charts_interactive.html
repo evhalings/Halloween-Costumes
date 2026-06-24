@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Halloween Costume Ratings — Interactive Charts</title>
+<style>
+  body {
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    background: #F8F9FC;
+    color: #2C2C2A;
+    margin: 0;
+    padding: 2rem;
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 500;
+    margin: 0 0 1.5rem;
+  }
+  h2 {
+    font-size: 16px;
+    font-weight: 500;
+    margin: 2.5rem 0 0.75rem;
+  }
+  .chart-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 900px;
+  }
+  .legend {
+    font-size: 12px;
+    color: #5F5E5A;
+    margin: 0 0 8px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Halloween Costume Ratings — 2025</h1>
+
+<h2>Overall opinion (1-10), ranked</h2>
+<div class="chart-wrap" style="height: 620px;">
+  <canvas id="overallChart"></canvas>
+</div>
+
+<h2>Creativity vs recognizability (bubble size = overall opinion)</h2>
+<p class="legend">Hover over a bubble to see the costume name and exact scores.</p>
+<div class="chart-wrap" style="height: 600px;">
+  <canvas id="scatterChart"></canvas>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const data = [
+  {name:"Scrat", creativity:4.26, recognizable:4.42, overall:8.21},
+  {name:"Heimlich", creativity:4.74, recognizable:3.84, overall:8.11},
+  {name:"Sid the Sloth", creativity:4.00, recognizable:4.47, overall:7.89},
+  {name:"Kevin", creativity:4.42, recognizable:3.84, overall:7.89},
+  {name:"Lego Batman", creativity:4.05, recognizable:4.68, overall:7.63},
+  {name:"Hidden Valley Ranch", creativity:4.26, recognizable:4.74, overall:7.63},
+  {name:"Fender", creativity:4.63, recognizable:2.95, overall:7.58},
+  {name:"Darth Jar Jar", creativity:4.11, recognizable:4.11, overall:7.47},
+  {name:"Omnidroid", creativity:4.53, recognizable:3.68, overall:7.05},
+  {name:"The Landlord Special", creativity:4.68, recognizable:2.79, overall:7.00},
+  {name:"JD Vance", creativity:3.78, recognizable:4.33, overall:7.00},
+  {name:"Kinesin Motor Protein", creativity:4.63, recognizable:1.42, overall:6.95},
+  {name:"Gingy", creativity:3.58, recognizable:4.79, overall:6.79},
+  {name:"Gru", creativity:3.00, recognizable:4.84, overall:6.79},
+  {name:"Aunt Fanny", creativity:4.79, recognizable:3.05, overall:6.74},
+  {name:"Rex", creativity:3.68, recognizable:3.63, overall:6.63},
+  {name:"The Lorax", creativity:2.84, recognizable:4.79, overall:6.63},
+  {name:"Chicken Joe", creativity:4.05, recognizable:2.84, overall:6.47},
+  {name:"Saddam Hussein Hiding Spot", creativity:4.26, recognizable:2.53, overall:6.32},
+  {name:"Anomalocaris", creativity:4.11, recognizable:1.68, overall:6.05},
+  {name:"Kit Fisto", creativity:3.89, recognizable:3.00, overall:6.00},
+  {name:"Paint Grandpa", creativity:4.00, recognizable:2.53, overall:5.37},
+];
+
+const sorted = [...data].sort((a, b) => b.overall - a.overall);
+
+new Chart(document.getElementById('overallChart'), {
+  type: 'bar',
+  data: {
+    labels: sorted.map(d => d.name),
+    datasets: [{
+      label: 'Overall opinion',
+      data: sorted.map(d => d.overall),
+      backgroundColor: '#D85A30',
+      borderRadius: 3,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { min: 0, max: 10, title: { display: true, text: 'Overall opinion (1-10)' } },
+      y: { ticks: { font: { size: 11 } } }
+    }
+  }
+});
+
+new Chart(document.getElementById('scatterChart'), {
+  type: 'bubble',
+  data: {
+    datasets: [{
+      label: 'Costumes',
+      data: data.map(d => ({
+        x: d.creativity,
+        y: d.recognizable,
+        r: 4 + d.overall * 1.8,
+        name: d.name,
+        overall: d.overall
+      })),
+      backgroundColor: 'rgba(83, 74, 183, 0.45)',
+      borderColor: '#534AB7',
+      borderWidth: 1,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    layout: { padding: 24 },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (ctx) =>
+            `${ctx.raw.name}: creativity ${ctx.raw.x.toFixed(2)}, ` +
+            `recognizable ${ctx.raw.y.toFixed(2)}, overall ${ctx.raw.overall.toFixed(2)}`
+        }
+      }
+    },
+    scales: {
+      x: { title: { display: true, text: 'Creativity (1-5)' }, min: 2, max: 5.3 },
+      y: { title: { display: true, text: 'Recognizable (1-5)' }, min: 0.5, max: 5.3 }
+    }
+  }
+});
+</script>
+</body>
+</html>
