@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Halloween Costume — Correlation Analysis</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    background: #F8F9FC;
+    color: #2C2C2A;
+    padding: 2rem;
+  }
+  h1 { font-size: 22px; font-weight: 600; margin-bottom: 0.25rem; }
+  .subtitle { font-size: 13px; color: #888; margin-bottom: 2rem; }
+  h2 { font-size: 15px; font-weight: 600; margin: 2.5rem 0 0.4rem; color: #1a1a2e; }
+  .section-desc { font-size: 12px; color: #777; margin-bottom: 0.75rem; }
+
+  /* Tab bar */
+  .tabs { display: flex; gap: 8px; margin-bottom: 2rem; flex-wrap: wrap; }
+  .tab {
+    padding: 7px 18px; border-radius: 20px; font-size: 13px; font-weight: 500;
+    cursor: pointer; border: 1.5px solid #ccc; background: #fff; color: #555;
+    transition: all 0.15s;
+  }
+  .tab.active { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
+  .tab:hover:not(.active) { border-color: #888; color: #222; }
+
+  /* Panels */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Chart grid */
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+  @media (max-width: 900px) { .chart-grid { grid-template-columns: 1fr; } }
+  .chart-box { background: #fff; border-radius: 10px; padding: 1.25rem; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+  .chart-box h3 { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 0.2rem; }
+  .chart-box .desc { font-size: 11px; color: #999; margin-bottom: 0.75rem; }
+  .chart-wrap { position: relative; width: 100%; height: 340px; }
+
+  /* Correlation badge */
+  .r-badge {
+    display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px;
+    border-radius: 10px; margin-left: 6px; vertical-align: middle;
+  }
+  .r-pos { background: #d4edda; color: #155724; }
+  .r-neg { background: #f8d7da; color: #721c24; }
+  .r-neutral { background: #e2e3e5; color: #383d41; }
+
+  /* Summary table */
+  .summary-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 1rem; }
+  .summary-table th { background: #1a1a2e; color: #fff; padding: 7px 10px; text-align: left; }
+  .summary-table td { padding: 6px 10px; border-bottom: 1px solid #eee; }
+  .summary-table tr:hover td { background: #f0f4ff; }
+  .bar-cell { position: relative; }
+  .bar-fill { height: 14px; border-radius: 3px; display: inline-block; min-width: 2px; }
+</style>
+</head>
+<body>
+
+<h1>🎃 Halloween Costume — Correlation Analysis</h1>
+<p class="subtitle">How do effort, ratings, and voting results relate to each other?</p>
+
+<div class="tabs">
+  <div class="tab active" onclick="showPanel('effort')">Effort vs Results</div>
+  <div class="tab" onclick="showPanel('ratings')">Ratings vs Votes</div>
+  <div class="tab" onclick="showPanel('summary')">Summary Table</div>
+</div>
+
+<!-- PANEL 1: Effort -->
+<div id="panel-effort" class="panel active">
+  <div class="chart-grid">
+
+    <div class="chart-box">
+      <h3>Effort vs Overall Opinion <span id="r-effort-overall" class="r-badge"></span></h3>
+      <p class="desc">Does higher effort = higher ratings? Hover for costume name.</p>
+      <div class="chart-wrap"><canvas id="c-effort-overall"></canvas></div>
+    </div>
+
+    <div class="chart-box">
+      <h3>Effort vs IRV Rank — Weighted <span id="r-effort-irv-w" class="r-badge"></span></h3>
+      <p class="desc">Rank 1 = winner. Does effort predict vote rank?</p>
+      <div class="chart-wrap"><canvas id="c-effort-irv-w"></canvas></div>
+    </div>
+
+    <div class="chart-box">
+      <h3>Effort vs IRV Rank — Unweighted <span id="r-effort-irv-u" class="r-badge"></span></h3>
+      <p class="desc">Same chart with unweighted votes.</p>
+      <div class="chart-wrap"><canvas id="c-effort-irv-u"></canvas></div>
+    </div>
+
+    <div class="chart-box">
+      <h3>Effort vs First-Choice Votes — Weighted <span id="r-effort-r1-w" class="r-badge"></span></h3>
+      <p class="desc">Round-1 vote totals (weighted). Raw first-choice popularity.</p>
+      <div class="chart-wrap"><canvas id="c-effort-r1-w"></canvas></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- PANEL 2: Ratings vs Votes -->
+<div id="panel-ratings" class="panel">
+  <div class="chart-grid">
+
+    <div class="chart-box">
+      <h3>Overall Opinion vs IRV Rank — Weighted <span id="r-overall-irv-w" class="r-badge"></span></h3>
+      <p class="desc">Does the 1-10 survey score predict who wins the vote?</p>
+      <div class="chart-wrap"><canvas id="c-overall-irv-w"></canvas></div>
+    </div>
+
+    <div class="chart-box">
+      <h3>Overall Opinion vs IRV Rank — Unweighted <span id="r-overall-irv-u" class="r-badge"></span></h3>
+      <p class="desc">Same with unweighted votes.</p>
+      <div class="chart-wrap"><canvas id="c-overall-irv-u"></canvas></div>
+    </div>
+
+    <div class="chart-box">
+      <h3>Creativity vs IRV Rank — Weighted <span id="r-creative-irv-w" class="r-badge"></span></h3>
+      <p class="desc">Does perceived creativity drive votes?</p>
+      <div class="chart-wrap"><canvas id="c-creative-irv-w"></canvas></div>
+    </div>
+
+    <div class="chart-box">
+      <h3>Recognizability vs IRV Rank — Weighted <span id="r-recog-irv-w" class="r-badge"></span></h3>
+      <p class="desc">Does recognizability drive votes?</p>
+      <div class="chart-wrap"><canvas id="c-recog-irv-w"></canvas></div>
+    </div>
+
+    <div class="chart-box">
+      <h3>Creativity vs IRV Rank — Unweighted <span id="r-creative-irv-u" class="r-badge"></span></h3>
+      <p class="desc">Unweighted version.</p>
+      <div class="chart-wrap"><canvas id="c-creative-irv-u"></canvas></div>
+    </div>
+
+    <div class="chart-box">
+      <h3>Recognizability vs IRV Rank — Unweighted <span id="r-recog-irv-u" class="r-badge"></span></h3>
+      <p class="desc">Unweighted version.</p>
+      <div class="chart-wrap"><canvas id="c-recog-irv-u"></canvas></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- PANEL 3: Summary Table -->
+<div id="panel-summary" class="panel">
+  <p class="section-desc">All metrics side by side. Sorted by weighted IRV rank.</p>
+  <table class="summary-table" id="summary-table">
+    <thead>
+      <tr>
+        <th>Costume</th>
+        <th>Effort (1-10)</th>
+        <th>Creativity (1-5)</th>
+        <th>Recognizable (1-5)</th>
+        <th>Overall (1-10)</th>
+        <th>IRV Rank W</th>
+        <th>IRV Rank U</th>
+        <th>R1 Votes W</th>
+      </tr>
+    </thead>
+    <tbody id="summary-body"></tbody>
+  </table>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ── Raw data ──────────────────────────────────────────────────────────────────
+const costumes = [
+  // name, effort, creativity, recognizable, overall, irv_w, irv_u, r1_w, r1_u
+  ["Gingy",                    7, 3.58, 4.79, 6.79, 20, 21, 3,  1],
+  ["Rex",                      8, 3.68, 3.63, 6.63, 17, 18, 3,  1],
+  ["The Lorax",                2, 2.84, 4.79, 6.63, 14, 10, 5,  3],
+  ["Chicken Joe",              3, 4.05, 2.84, 6.47, 21, 22, 3,  1],
+  ["Sid the Sloth",            8, 4.00, 4.47, 7.89,  3,  2, 5,  3],
+  ["Gru",                      1, 3.00, 4.84, 6.79, 15, 12, 5,  3],
+  ["Heimlich",                 6, 4.74, 3.84, 8.11,  2,  3,15,  5],
+  ["Fender",                   9, 4.63, 2.95, 7.58,  6,  6,10,  4],
+  ["Kevin",                   10, 4.42, 3.84, 7.89,  1,  1,19,  9],
+  ["Omnidroid",                7, 4.53, 3.68, 7.05, 18, 19, 3,  1],
+  ["Scrat",                    9, 4.26, 4.42, 8.21, 10, 13, 6,  2],
+  ["Lego Batman",              8, 4.05, 4.68, 7.63,  5,  4,10,  4],
+  ["Aunt Fanny",               9, 4.79, 3.05, 6.74,  4,  5,13,  5],
+  ["JD Vance",                 7, 3.78, 4.33, 7.00, 22, 16, 2,  2],
+  ["Kinesin Motor Protein",    3, 4.63, 1.42, 6.95,  8,  8, 6,  2],
+  ["Kit Fisto",               10, 3.89, 3.00, 6.00, 12, 15, 6,  2],
+  ["Saddam Hussein Hiding Spot",6,4.26, 2.53, 6.32,  7,  7, 7,  3],
+  ["Darth Jar Jar",            8, 4.11, 4.11, 7.47, 11,  9, 0,  0],
+  ["Hidden Valley Ranch",      7, 4.26, 4.74, 7.63, 19, 20, 3,  1],
+  ["Paint Grandpa",            3, 4.00, 2.53, 5.37, 16, 14, 4,  2],
+  ["The Landlord Special",     3, 4.68, 2.79, 7.00,  9, 11, 6,  2],
+  ["Anomalocaris",             8, 4.11, 1.68, 6.05, 13, 17, 6,  2],
+];
+
+// Column indices
+const CI = { name:0, effort:1, creative:2, recog:3, overall:4, irv_w:5, irv_u:6, r1_w:7, r1_u:8 };
+
+// ── Pearson correlation ───────────────────────────────────────────────────────
+function pearson(xs, ys) {
+  const n = xs.length;
+  const mx = xs.reduce((a,b)=>a+b,0)/n, my = ys.reduce((a,b)=>a+b,0)/n;
+  let num=0, dx2=0, dy2=0;
+  for(let i=0;i<n;i++){
+    const dx=xs[i]-mx, dy=ys[i]-my;
+    num+=dx*dy; dx2+=dx*dx; dy2+=dy*dy;
+  }
+  return dx2*dy2===0 ? 0 : num/Math.sqrt(dx2*dy2);
+}
+
+function setBadge(id, r) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const abs = Math.abs(r);
+  let cls = abs < 0.2 ? 'r-neutral' : (r > 0 ? 'r-pos' : 'r-neg');
+  el.textContent = `r = ${r.toFixed(2)}`;
+  el.className = `r-badge ${cls}`;
+}
+
+// ── Scatter chart factory ─────────────────────────────────────────────────────
+function makeScatter(canvasId, xKey, yKey, xLabel, yLabel, rBadgeId, invertY=false) {
+  const pts = costumes.map(c => ({
+    x: c[CI[xKey]], y: c[CI[yKey]], name: c[CI.name]
+  }));
+
+  const r = pearson(pts.map(p=>p.x), pts.map(p=>p.y));
+  setBadge(rBadgeId, r);
+
+  // Least-squares regression line
+  const xs = pts.map(p=>p.x), ys = pts.map(p=>p.y);
+  const n = xs.length;
+  const mx = xs.reduce((a,b)=>a+b,0)/n, my = ys.reduce((a,b)=>a+b,0)/n;
+  let num=0, denom=0;
+  xs.forEach((x,i)=>{ num+=(x-mx)*(ys[i]-my); denom+=(x-mx)**2; });
+  const slope = denom===0 ? 0 : num/denom;
+  const intercept = my - slope*mx;
+  const xMin = Math.min(...xs), xMax = Math.max(...xs);
+  const lineData = [
+    {x: xMin, y: slope*xMin+intercept},
+    {x: xMax, y: slope*xMax+intercept}
+  ];
+
+  new Chart(document.getElementById(canvasId), {
+    data: {
+      datasets: [
+        {
+          type: 'scatter',
+          label: 'Costumes',
+          data: pts,
+          backgroundColor: 'rgba(83,74,183,0.5)',
+          borderColor: '#534AB7',
+          borderWidth: 1,
+          pointRadius: 7,
+          pointHoverRadius: 9,
+        },
+        {
+          type: 'line',
+          label: 'Trend',
+          data: lineData,
+          borderColor: 'rgba(216,90,48,0.7)',
+          borderWidth: 2,
+          borderDash: [5,4],
+          pointRadius: 0,
+          fill: false,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              if (ctx.datasetIndex === 1) return null;
+              return `${ctx.raw.name}: ${xLabel} ${ctx.raw.x.toFixed(2)}, ${yLabel} ${ctx.raw.y.toFixed(2)}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { title: { display: true, text: xLabel, font:{size:11} } },
+        y: {
+          title: { display: true, text: yLabel, font:{size:11} },
+          reverse: invertY,   // invert so rank 1 (winner) is at the TOP
+        }
+      }
+    }
+  });
+}
+
+// ── Build all charts ──────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+
+  // Effort panel
+  makeScatter('c-effort-overall', 'effort', 'overall',   'Effort (1-10)', 'Overall opinion (1-10)', 'r-effort-overall', false);
+  makeScatter('c-effort-irv-w',   'effort', 'irv_w',     'Effort (1-10)', 'IRV rank (1=winner)',    'r-effort-irv-w',   true);
+  makeScatter('c-effort-irv-u',   'effort', 'irv_u',     'Effort (1-10)', 'IRV rank (1=winner)',    'r-effort-irv-u',   true);
+  makeScatter('c-effort-r1-w',    'effort', 'r1_w',      'Effort (1-10)', 'Round-1 votes (wtd)',    'r-effort-r1-w',    false);
+
+  // Ratings vs votes panel
+  makeScatter('c-overall-irv-w',  'overall',  'irv_w',   'Overall opinion (1-10)', 'IRV rank (1=winner)', 'r-overall-irv-w',  true);
+  makeScatter('c-overall-irv-u',  'overall',  'irv_u',   'Overall opinion (1-10)', 'IRV rank (1=winner)', 'r-overall-irv-u',  true);
+  makeScatter('c-creative-irv-w', 'creative', 'irv_w',   'Creativity (1-5)',       'IRV rank (1=winner)', 'r-creative-irv-w', true);
+  makeScatter('c-recog-irv-w',    'recog',    'irv_w',   'Recognizable (1-5)',     'IRV rank (1=winner)', 'r-recog-irv-w',    true);
+  makeScatter('c-creative-irv-u', 'creative', 'irv_u',   'Creativity (1-5)',       'IRV rank (1=winner)', 'r-creative-irv-u', true);
+  makeScatter('c-recog-irv-u',    'recog',    'irv_u',   'Recognizable (1-5)',     'IRV rank (1=winner)', 'r-recog-irv-u',    true);
+
+  // Summary table
+  const sorted = [...costumes].sort((a,b) => a[CI.irv_w] - b[CI.irv_w]);
+  const tbody = document.getElementById('summary-body');
+  sorted.forEach(c => {
+    const tr = document.createElement('tr');
+    const barW = (w, max, color) =>
+      `<div class="bar-fill" style="width:${Math.round(w/max*90)}px;background:${color};"></div>`;
+    tr.innerHTML = `
+      <td><b>${c[CI.name]}</b></td>
+      <td class="bar-cell">${barW(c[CI.effort],10,'#e07040')} ${c[CI.effort]}</td>
+      <td class="bar-cell">${barW(c[CI.creative],5,'#378ADD')} ${c[CI.creative].toFixed(2)}</td>
+      <td class="bar-cell">${barW(c[CI.recog],5,'#1D9E75')} ${c[CI.recog].toFixed(2)}</td>
+      <td class="bar-cell">${barW(c[CI.overall],10,'#D85A30')} ${c[CI.overall].toFixed(2)}</td>
+      <td><b>#${c[CI.irv_w]}</b></td>
+      <td>#${c[CI.irv_u]}</td>
+      <td>${c[CI.r1_w]}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+});
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function showPanel(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+</script>
+</body>
+</html>
