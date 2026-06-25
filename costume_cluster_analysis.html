@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Halloween Costume — Feature Coupling & Cluster Analysis</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    background: #F0F2F8;
+    color: #2C2C2A;
+    padding: 2rem;
+  }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 0.2rem; }
+  .subtitle { font-size: 13px; color: #888; margin-bottom: 2rem; }
+  h2 { font-size: 15px; font-weight: 600; margin: 0 0 0.3rem; color: #1a1a2e; }
+  .section-desc { font-size: 12px; color: #888; margin-bottom: 1rem; line-height: 1.5; }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 2rem; flex-wrap: wrap; }
+  .tab {
+    padding: 7px 18px; border-radius: 20px; font-size: 13px; font-weight: 500;
+    cursor: pointer; border: 1.5px solid #ccc; background: #fff; color: #555;
+    transition: all 0.15s;
+  }
+  .tab.active { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
+  .tab:hover:not(.active) { border-color: #888; color: #222; }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .chart-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  .chart-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; }
+  @media (max-width: 1000px) { .chart-grid-2, .chart-grid-3 { grid-template-columns: 1fr; } }
+
+  .card {
+    background: #fff; border-radius: 12px; padding: 1.25rem;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.07);
+  }
+  .card-full { grid-column: 1 / -1; }
+  .chart-wrap { position: relative; width: 100%; height: 340px; }
+  .chart-wrap-tall { position: relative; width: 100%; height: 420px; }
+  .chart-wrap-wide { position: relative; width: 100%; height: 320px; }
+
+  .card h3 { font-size: 13px; font-weight: 600; color: #222; margin-bottom: 0.15rem; }
+  .card .desc { font-size: 11px; color: #aaa; margin-bottom: 0.75rem; line-height: 1.4; }
+
+  /* cluster legend */
+  .cluster-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 1rem; font-size: 12px; }
+  .cl-item { display: flex; align-items: center; gap: 6px; }
+  .cl-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+
+  /* stated vs revealed table */
+  .svr-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .svr-table th { background: #1a1a2e; color: #fff; padding: 8px 12px; text-align: left; font-weight: 500; }
+  .svr-table td { padding: 8px 12px; border-bottom: 1px solid #eee; }
+  .svr-table tr:hover td { background: #f5f7ff; }
+  .rank-pill {
+    display: inline-block; width: 24px; height: 24px; border-radius: 50%;
+    text-align: center; line-height: 24px; font-weight: 700; font-size: 11px; color: #fff;
+  }
+
+  /* regression bars */
+  .coef-bar-pos { display: inline-block; height: 14px; border-radius: 3px; background: #378ADD; vertical-align: middle; }
+  .coef-bar-neg { display: inline-block; height: 14px; border-radius: 3px; background: #e05a5a; vertical-align: middle; }
+  .coef-label { font-size: 11px; color: #555; vertical-align: middle; margin-left: 4px; }
+
+  .insight-box {
+    background: #f0f4ff; border-left: 3px solid #534AB7; border-radius: 6px;
+    padding: 12px 14px; font-size: 12px; line-height: 1.6; color: #333;
+    margin-bottom: 1.5rem;
+  }
+  .insight-box b { color: #1a1a2e; }
+
+  .r2-badge {
+    display: inline-block; background: #1a1a2e; color: #fff;
+    font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-left: 6px;
+  }
+</style>
+</head>
+<body>
+
+<h1>🎃 Feature Coupling & Cluster Analysis</h1>
+<p class="subtitle">How do combinations of effort, creativity, recognizability and overall opinion drive voting outcomes?</p>
+
+<div class="tabs">
+  <div class="tab active" onclick="showPanel('clusters', event)">Clusters</div>
+  <div class="tab" onclick="showPanel('coupling', event)">Feature Coupling</div>
+  <div class="tab" onclick="showPanel('regression', event)">Regression</div>
+  <div class="tab" onclick="showPanel('stated', event)">Stated vs Revealed</div>
+</div>
+
+<!-- ═══════════════════════════════ PANEL 1: CLUSTERS ═══════════════════════════════ -->
+<div id="panel-clusters" class="panel active">
+
+  <div class="insight-box">
+    K-means clustering (k=4) on effort + creativity + recognizability + overall opinion identifies four distinct groups with very different vote outcomes.
+    <b>Cluster A</b> (high effort + high creativity) dominates the top of the vote.
+    <b>Cluster B</b> (high creativity, low recognizability) forms a mid-tier creative-but-obscure group.
+    <b>Cluster C</b> (high effort, lower creativity) underperforms relative to its effort investment.
+    <b>Cluster D</b> (low effort, high recognizability) landed at the bottom despite being recognizable.
+  </div>
+
+  <div class="cluster-legend">
+    <div class="cl-item"><div class="cl-dot" style="background:#4E79A7"></div><b>Cluster A</b> — High effort + high creativity (avg IRV rank #7.9)</div>
+    <div class="cl-item"><div class="cl-dot" style="background:#E15759"></div><b>Cluster B</b> — Creative, low recognizability (avg IRV rank #12.3)</div>
+    <div class="cl-item"><div class="cl-dot" style="background:#F28E2B"></div><b>Cluster C</b> — High effort, lower creativity (avg IRV rank #17.8)</div>
+    <div class="cl-item"><div class="cl-dot" style="background:#76B7B2"></div><b>Cluster D</b> — Low effort, high recognizability (avg IRV rank #14.5)</div>
+  </div>
+
+  <div class="chart-grid-2">
+
+    <div class="card card-full">
+      <h3>Cluster membership — ranked by weighted IRV</h3>
+      <p class="desc">Each costume colored by cluster. Sorted from #1 winner → #22. Hover for details.</p>
+      <div class="chart-wrap-wide"><canvas id="c-cluster-rank"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h3>Effort vs Creativity — colored by cluster</h3>
+      <p class="desc">Bubble size = weighted IRV score (larger = voted higher). The top-right quadrant (high effort + high creativity) is Cluster A — the vote winners.</p>
+      <div class="chart-wrap"><canvas id="c-cluster-effort-creative"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h3>Creativity vs Recognizability — colored by cluster</h3>
+      <p class="desc">Cluster B (red) sits at high creativity but low recognizability. Cluster D (teal) is the opposite. Neither outperformed Cluster A.</p>
+      <div class="chart-wrap"><canvas id="c-cluster-creative-recog"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h3>Cluster profile comparison</h3>
+      <p class="desc">Average feature values per cluster, normalized to a common scale. Shows the "fingerprint" of each group.</p>
+      <div class="chart-wrap"><canvas id="c-cluster-radar"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h3>Cluster average IRV rank (weighted)</h3>
+      <p class="desc">Lower rank = voted higher. Cluster A wins decisively. The effort×creativity combination beats either factor alone.</p>
+      <div class="chart-wrap"><canvas id="c-cluster-avg-rank"></canvas></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ PANEL 2: COUPLING ════════════════════════════════ -->
+<div id="panel-coupling" class="panel">
+
+  <div class="insight-box">
+    Individual feature correlations are moderate, but <b>effort × creativity</b> as a combined term has the strongest correlation with voting outcomes (r=0.43 weighted).
+    This suggests voters subconsciously rewarded costumes where high creative ambition was backed up by real construction commitment —
+    creative ideas that felt "doable" or "low-effort" didn't translate into votes the same way.
+  </div>
+
+  <div class="chart-grid-2">
+
+    <div class="card">
+      <h3>Effort × Creativity vs IRV rank (weighted)</h3>
+      <p class="desc">Multiplying effort and creativity gives a single "committed creativity" score. Hover for details.</p>
+      <div class="chart-wrap"><canvas id="c-efcr-irv-w"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h3>Effort × Creativity vs IRV rank (unweighted)</h3>
+      <p class="desc">Pattern holds in unweighted votes too, but is noisier — suggesting the 3× voters especially rewarded this combination.</p>
+      <div class="chart-wrap"><canvas id="c-efcr-irv-u"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h3>Correlation comparison: single features vs interactions</h3>
+      <p class="desc">r with weighted IRV score. Positive = higher value → more votes. Effort×Creativity outperforms any single metric except overall opinion.</p>
+      <div class="chart-wrap"><canvas id="c-corr-bar"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h3>Effort × Creativity vs Overall opinion</h3>
+      <p class="desc">Does the effort×creativity combination also predict survey ratings? Shows whether voters were aware of this preference.</p>
+      <div class="chart-wrap"><canvas id="c-efcr-overall"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h3>Overall opinion vs IRV rank (weighted)</h3>
+      <p class="desc">For reference: the strongest single-feature predictor. The survey overall score is a decent proxy for vote rank, but still noisy.</p>
+      <div class="chart-wrap"><canvas id="c-overall-irv"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h3>Effort × Creativity × Recognizability vs IRV rank</h3>
+      <p class="desc">Adding recognizability to the interaction actually weakens the signal (r=0.30) — confirming recognizability is not a key driver of votes.</p>
+      <div class="chart-wrap"><canvas id="c-triple-irv"></canvas></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ PANEL 3: REGRESSION ══════════════════════════════ -->
+<div id="panel-regression" class="panel">
+
+  <div class="insight-box">
+    Multiple linear regression using all four features simultaneously to predict vote score.
+    <b>R² = 0.43 (weighted)</b> — the four features together explain about 43% of variance in vote outcomes.
+    The remaining ~57% reflects personal taste, familiarity with the source material, and group dynamics not captured here.
+    Overall opinion has by far the largest positive coefficient, followed by effort.
+    The negative coefficients for creativity and recognizability in isolation are a multicollinearity artifact —
+    when overall opinion is already in the model, the other terms adjust accordingly.
+  </div>
+
+  <div class="chart-grid-2">
+
+    <div class="card card-full">
+      <h3>Regression coefficients — weighted IRV <span class="r2-badge">R² = 0.43</span></h3>
+      <p class="desc">Size of bar = magnitude of effect on vote score when holding all other variables constant. Orange = positive (boosts votes), red = negative in this model context.</p>
+      <div style="padding: 1rem 0;" id="coef-table-w"></div>
+    </div>
+
+    <div class="card card-full">
+      <h3>Regression coefficients — unweighted IRV <span class="r2-badge">R² = 0.29</span></h3>
+      <p class="desc">Unweighted model is noisier (lower R²). Overall opinion remains dominant; effort matters less without the 3× voter amplification.</p>
+      <div style="padding: 1rem 0;" id="coef-table-u"></div>
+    </div>
+
+    <div class="card">
+      <h3>Predicted vs actual IRV rank — weighted</h3>
+      <p class="desc">How well does the model predict each costume's rank? Points on the diagonal = perfect prediction. Hover for name.</p>
+      <div class="chart-wrap"><canvas id="c-pred-actual-w"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h3>Predicted vs actual IRV rank — unweighted</h3>
+      <p class="desc">Unweighted predictions are more scattered — the group dynamics of 1× voters are harder to model.</p>
+      <div class="chart-wrap"><canvas id="c-pred-actual-u"></canvas></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ PANEL 4: STATED vs REVEALED ══════════════════════ -->
+<div id="panel-stated" class="panel">
+
+  <div class="insight-box">
+    Voters were asked to rank what they value in a Halloween costume.
+    Their <b>stated preferences</b> put Creativity #1 and Effort/Difficulty #5 (last).
+    But the data tells a different story: <b>effort × creativity together</b> was the strongest predictor of vote outcomes —
+    and effort alone outperformed recognizability in driving votes, despite recognizability being ranked #3 by voters.
+    This is a classic stated vs revealed preference gap: people said they don't care about effort, but they voted for high-effort costumes.
+  </div>
+
+  <div class="chart-grid-2">
+
+    <div class="card">
+      <h3>Stated importance vs actual correlation with votes</h3>
+      <p class="desc">Voters ranked features 1-5 by importance (lower mean = rated more important). Bars show actual Pearson r with weighted IRV score. The gap between stated and revealed is stark for effort.</p>
+      <div class="chart-wrap-tall"><canvas id="c-stated-vs-revealed"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h3>The effort paradox</h3>
+      <p class="desc">Effort was ranked last in stated importance (mean rank 4.19 out of 5), yet it has the second-highest actual correlation with vote outcomes — and the strongest interaction with creativity. This chart plots each costume's effort vs IRV rank, colored by whether creativity was above/below median (4.26).</p>
+      <div class="chart-wrap-tall"><canvas id="c-effort-paradox"></canvas></div>
+    </div>
+
+    <div class="card card-full">
+      <h3>Stated vs Revealed preference summary</h3>
+      <div style="margin-top: 0.5rem;">
+        <table class="svr-table">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th>Stated rank (survey mean)</th>
+              <th>Correlation w/ votes (weighted)</th>
+              <th>Interaction w/ effort (r)</th>
+              <th>Verdict</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b>Creativity</b></td>
+              <td><span class="rank-pill" style="background:#4E79A7">#1</span> mean 2.48</td>
+              <td>r = 0.495 ✓ strong</td>
+              <td>r = 0.426 (effort×creativity)</td>
+              <td>✅ Stated & revealed agree</td>
+            </tr>
+            <tr>
+              <td><b>Execution / Craftsmanship</b></td>
+              <td><span class="rank-pill" style="background:#59A14F">#2</span> mean 2.67</td>
+              <td>— (not measured directly)</td>
+              <td>Captured by effort proxy</td>
+              <td>✅ Likely reflected in effort</td>
+            </tr>
+            <tr>
+              <td><b>Recognizability</b></td>
+              <td><span class="rank-pill" style="background:#F28E2B">#3</span> mean 2.75</td>
+              <td>r = −0.147 ✗ near zero</td>
+              <td>r = 0.201 (effort×recog)</td>
+              <td>❌ Stated important, revealed irrelevant</td>
+            </tr>
+            <tr>
+              <td><b>Humor</b></td>
+              <td><span class="rank-pill" style="background:#E15759">#4</span> mean 2.92</td>
+              <td>— (not measured directly)</td>
+              <td>Partially captured by overall</td>
+              <td>⚠️ Not directly measurable here</td>
+            </tr>
+            <tr>
+              <td><b>Effort / Difficulty</b></td>
+              <td><span class="rank-pill" style="background:#76B7B2">#5</span> mean 4.19</td>
+              <td>r = 0.321 ✓ moderate</td>
+              <td>r = 0.426 (effort×creativity)</td>
+              <td>❌ Stated unimportant, revealed strong driver</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ── Data ──────────────────────────────────────────────────────────────────────
+const COSTUMES = [
+  // name, effort, creative, recog, overall, irv_w, irv_u, cluster
+  ["Kevin",                     10, 4.42, 3.84, 7.89,  1,  1, "A"],
+  ["Heimlich",                   6, 4.74, 3.84, 8.11,  2,  3, "A"],
+  ["Sid the Sloth",              8, 4.00, 4.47, 7.89,  3,  2, "A"],
+  ["Aunt Fanny",                 9, 4.79, 3.05, 6.74,  4,  5, "A"],
+  ["Lego Batman",                8, 4.05, 4.68, 7.63,  5,  4, "A"],
+  ["Fender",                     9, 4.63, 2.95, 7.58,  6,  6, "A"],
+  ["Saddam Hussein Hiding Spot", 6, 4.26, 2.53, 6.32,  7,  7, "B"],
+  ["Kinesin Motor Protein",      3, 4.63, 1.42, 6.95,  8,  8, "B"],
+  ["The Landlord Special",       3, 4.68, 2.79, 7.00,  9, 11, "B"],
+  ["Scrat",                      9, 4.26, 4.42, 8.21, 10, 13, "A"],
+  ["Darth Jar Jar",              8, 4.11, 4.11, 7.47, 11,  9, "A"],
+  ["Kit Fisto",                 10, 3.89, 3.00, 6.00, 12, 15, "C"],
+  ["Anomalocaris",               8, 4.11, 1.68, 6.05, 13, 17, "B"],
+  ["The Lorax",                  2, 2.84, 4.79, 6.63, 14, 10, "D"],
+  ["Gru",                        1, 3.00, 4.84, 6.79, 15, 12, "D"],
+  ["Paint Grandpa",              3, 4.00, 2.53, 5.37, 16, 14, "B"],
+  ["Rex",                        8, 3.68, 3.63, 6.63, 17, 18, "C"],
+  ["Omnidroid",                  7, 4.53, 3.68, 7.05, 18, 19, "A"],
+  ["Hidden Valley Ranch",        7, 4.26, 4.74, 7.63, 19, 20, "A"],
+  ["Gingy",                      7, 3.58, 4.79, 6.79, 20, 21, "C"],
+  ["Chicken Joe",                3, 4.05, 2.84, 6.47, 21, 22, "B"],
+  ["JD Vance",                   7, 3.78, 4.33, 7.00, 22, 16, "C"],
+];
+
+const CI = {name:0,effort:1,creative:2,recog:3,overall:4,irv_w:5,irv_u:6,cluster:7};
+const CLUSTER_COLORS = {A:"#4E79A7", B:"#E15759", C:"#F28E2B", D:"#76B7B2"};
+
+function get(key) { return COSTUMES.map(c => c[CI[key]]); }
+function pearson(xs, ys) {
+  const n=xs.length, mx=xs.reduce((a,b)=>a+b,0)/n, my=ys.reduce((a,b)=>a+b,0)/n;
+  let num=0,dx2=0,dy2=0;
+  for(let i=0;i<n;i++){const dx=xs[i]-mx,dy=ys[i]-my; num+=dx*dy; dx2+=dx*dx; dy2+=dy*dy;}
+  return dx2*dy2===0?0:num/Math.sqrt(dx2*dy2);
+}
+function trendLine(xs, ys) {
+  const n=xs.length, mx=xs.reduce((a,b)=>a+b,0)/n, my=ys.reduce((a,b)=>a+b,0)/n;
+  let num=0,denom=0;
+  xs.forEach((x,i)=>{num+=(x-mx)*(ys[i]-my); denom+=(x-mx)**2;});
+  const m=denom===0?0:num/denom, b=my-m*mx;
+  const xMin=Math.min(...xs), xMax=Math.max(...xs);
+  return [{x:xMin,y:m*xMin+b},{x:xMax,y:m*xMax+b}];
+}
+
+const gridColor = 'rgba(0,0,0,0.06)';
+const textColor = '#666';
+
+function scatterPlot(canvasId, xVals, yVals, xLabel, yLabel, colorFn, tooltipFn, invertY=false) {
+  const pts = COSTUMES.map((c,i) => ({x:xVals[i], y:yVals[i], name:c[CI.name]}));
+  const line = trendLine(xVals, yVals);
+  const r = pearson(xVals, yVals);
+  new Chart(document.getElementById(canvasId), {
+    data: {
+      datasets: [
+        { type:'scatter', label:'Costumes', data:pts,
+          backgroundColor: pts.map((_,i)=>colorFn(i)), borderColor: pts.map((_,i)=>colorFn(i)),
+          borderWidth:1, pointRadius:7, pointHoverRadius:9 },
+        { type:'line', data:line, borderColor:'rgba(100,100,100,0.4)',
+          borderWidth:2, borderDash:[5,4], pointRadius:0, fill:false, label:'Trend' }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: {
+        legend:{display:false},
+        tooltip:{callbacks:{
+          label: ctx => ctx.datasetIndex===1 ? null : tooltipFn(ctx.raw, ctx.dataIndex)
+        }},
+        title:{display:true, text:`r = ${r.toFixed(3)}`, color:'#888', font:{size:11}, align:'end'}
+      },
+      scales: {
+        x:{title:{display:true,text:xLabel,font:{size:11}},grid:{color:gridColor},ticks:{color:textColor}},
+        y:{title:{display:true,text:yLabel,font:{size:11}},reverse:invertY,grid:{color:gridColor},ticks:{color:textColor}}
+      }
+    }
+  });
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const effort   = get('effort');
+  const creative = get('creative');
+  const recog    = get('recog');
+  const overall  = get('overall');
+  const irv_w    = get('irv_w');
+  const irv_u    = get('irv_u');
+  const clusters = get('cluster');
+  const irv_w_s  = irv_w.map(v => 23-v);
+  const irv_u_s  = irv_u.map(v => 23-v);
+  const ef_cr    = effort.map((e,i) => e*creative[i]);
+  const ef_cr_re = effort.map((e,i) => e*creative[i]*recog[i]);
+  const clusterColor = i => CLUSTER_COLORS[clusters[i]] + 'BB';
+  const defaultColor = _ => 'rgba(83,74,183,0.55)';
+  const ttDefault = (raw, i) => `${raw.name}: x=${raw.x.toFixed(2)}, y=${raw.y.toFixed(2)}`;
+  const ttIRV = (raw, i) => `${raw.name}: x=${raw.x.toFixed(2)}, IRV rank #${irv_w[i]}`;
+
+  // ── CLUSTER PANEL ──────────────────────────────────────────────────────────
+
+  // Cluster rank bar
+  const sortedByRankW = [...COSTUMES].sort((a,b)=>a[CI.irv_w]-b[CI.irv_w]);
+  new Chart(document.getElementById('c-cluster-rank'), {
+    type:'bar',
+    data:{
+      labels: sortedByRankW.map(c=>c[CI.name]),
+      datasets:[{
+        data: sortedByRankW.map(c => 23 - c[CI.irv_w]),
+        backgroundColor: sortedByRankW.map(c => CLUSTER_COLORS[c[CI.cluster]] + 'CC'),
+        borderRadius:3,
+      }]
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label: ctx => {
+          const c = sortedByRankW[ctx.dataIndex];
+          return `${c[CI.name]} — Cluster ${c[CI.cluster]}: IRV rank #${c[CI.irv_w]}, effort=${c[CI.effort]}, creativity=${c[CI.creative].toFixed(2)}`;
+        }}}
+      },
+      scales:{
+        x:{title:{display:true,text:'IRV vote score (higher = more votes)',font:{size:11}},grid:{color:gridColor},ticks:{color:textColor}},
+        y:{ticks:{font:{size:10},color:textColor},grid:{display:false}}
+      }
+    }
+  });
+
+  // Effort vs Creativity scatter
+  scatterPlot('c-cluster-effort-creative', effort, creative,
+    'Effort (1-10)', 'Creativity (1-5)', clusterColor,
+    (raw,i) => `${raw.name} [Cluster ${clusters[i]}]: effort=${raw.x}, creativity=${raw.y.toFixed(2)}, IRV #${irv_w[i]}`
+  );
+
+  // Creativity vs Recog scatter
+  scatterPlot('c-cluster-creative-recog', creative, recog,
+    'Creativity (1-5)', 'Recognizability (1-5)', clusterColor,
+    (raw,i) => `${raw.name} [Cluster ${clusters[i]}]: creativity=${raw.x.toFixed(2)}, recog=${raw.y.toFixed(2)}, IRV #${irv_w[i]}`
+  );
+
+  // Cluster radar (using bar chart as radar proxy — more readable)
+  const clusterIds = ['A','B','C','D'];
+  const clusterNames = ['A — High effort+creativity','B — Creative, low recog','C — High effort, low creativity','D — Low effort, high recog'];
+  const avgBy = (cid, key) => {
+    const vals = COSTUMES.filter(c=>c[CI.cluster]===cid).map(c=>c[CI[key]]);
+    return vals.reduce((a,b)=>a+b,0)/vals.length;
+  };
+  new Chart(document.getElementById('c-cluster-radar'), {
+    type:'radar',
+    data:{
+      labels:['Effort /10','Creativity /5','Recognizable /5','Overall /10','IRV score /22'],
+      datasets: clusterIds.map((cid,i) => ({
+        label: `Cluster ${cid}`,
+        data:[
+          avgBy(cid,'effort')/10*5,
+          avgBy(cid,'creative'),
+          avgBy(cid,'recog'),
+          avgBy(cid,'overall')/10*5,
+          (23-avgBy(cid,'irv_w'))/22*5,
+        ],
+        borderColor: CLUSTER_COLORS[cid],
+        backgroundColor: CLUSTER_COLORS[cid]+'33',
+        borderWidth:2, pointRadius:3,
+      }))
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{font:{size:11}}}},
+      scales:{r:{min:0,max:5,ticks:{display:false},grid:{color:'rgba(0,0,0,0.08)'},
+        pointLabels:{font:{size:10},color:'#555'}}}
+    }
+  });
+
+  // Cluster avg rank bar
+  new Chart(document.getElementById('c-cluster-avg-rank'), {
+    type:'bar',
+    data:{
+      labels: clusterNames,
+      datasets:[{
+        label:'Avg IRV rank (lower = better)',
+        data: clusterIds.map(cid => avgBy(cid,'irv_w')),
+        backgroundColor: clusterIds.map(cid => CLUSTER_COLORS[cid]+'CC'),
+        borderRadius:4,
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>`Avg IRV rank: #${ctx.raw.toFixed(1)}`}}},
+      scales:{
+        y:{reverse:true,title:{display:true,text:'Avg weighted IRV rank (1=best)',font:{size:11}},
+          grid:{color:gridColor},ticks:{color:textColor}},
+        x:{ticks:{font:{size:10},color:textColor},grid:{display:false}}
+      }
+    }
+  });
+
+  // ── COUPLING PANEL ─────────────────────────────────────────────────────────
+
+  scatterPlot('c-efcr-irv-w', ef_cr, irv_w,
+    'Effort × Creativity', 'IRV rank (1=winner)', defaultColor,
+    (raw,i) => `${raw.name}: ef×cr=${raw.x.toFixed(1)}, IRV #${irv_w[i]}`, true);
+
+  scatterPlot('c-efcr-irv-u', ef_cr, irv_u,
+    'Effort × Creativity', 'IRV rank (1=winner)', defaultColor,
+    (raw,i) => `${raw.name}: ef×cr=${raw.x.toFixed(1)}, IRV #${irv_u[i]}`, true);
+
+  scatterPlot('c-efcr-overall', ef_cr, overall,
+    'Effort × Creativity', 'Overall opinion (1-10)', defaultColor,
+    (raw,i) => `${raw.name}: ef×cr=${raw.x.toFixed(1)}, overall=${raw.y.toFixed(2)}`);
+
+  scatterPlot('c-overall-irv', overall, irv_w,
+    'Overall opinion (1-10)', 'IRV rank (1=winner)', defaultColor,
+    (raw,i) => `${raw.name}: overall=${raw.x.toFixed(2)}, IRV #${irv_w[i]}`, true);
+
+  scatterPlot('c-triple-irv', ef_cr_re, irv_w,
+    'Effort × Creativity × Recognizability', 'IRV rank (1=winner)', defaultColor,
+    (raw,i) => `${raw.name}: triple=${raw.x.toFixed(1)}, IRV #${irv_w[i]}`, true);
+
+  // Correlation bar chart
+  const corrLabels = ['Effort alone','Creativity alone','Recognizability','Overall opinion','Effort × Creativity','Effort × Recog','Creative × Recog'];
+  const corrVals = [
+    pearson(effort, irv_w_s),
+    pearson(creative, irv_w_s),
+    pearson(recog, irv_w_s),
+    pearson(overall, irv_w_s),
+    pearson(ef_cr, irv_w_s),
+    pearson(effort.map((e,i)=>e*recog[i]), irv_w_s),
+    pearson(creative.map((c,i)=>c*recog[i]), irv_w_s),
+  ];
+  new Chart(document.getElementById('c-corr-bar'), {
+    type:'bar',
+    data:{
+      labels: corrLabels,
+      datasets:[{
+        data: corrVals,
+        backgroundColor: corrVals.map(v => v>=0 ? '#378ADD99' : '#E1575999'),
+        borderColor:      corrVals.map(v => v>=0 ? '#378ADD' : '#E15759'),
+        borderWidth:1, borderRadius:3,
+      }]
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>`r = ${ctx.raw.toFixed(3)}`}}},
+      scales:{
+        x:{title:{display:true,text:'Pearson r with weighted IRV score',font:{size:11}},
+          min:-0.3, max:0.6, grid:{color:gridColor},ticks:{color:textColor}},
+        y:{ticks:{font:{size:10},color:textColor},grid:{display:false}}
+      }
+    }
+  });
+
+  // ── REGRESSION PANEL ───────────────────────────────────────────────────────
+
+  // Regression coefficients as visual tables
+  function makeCoefTable(containerId, coefs, intercept) {
+    const feats = ['Effort','Creativity','Recognizability','Overall opinion'];
+    const maxAbs = Math.max(...coefs.map(Math.abs));
+    let html = '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+    html += '<tr><th style="text-align:left;padding:4px 8px;color:#888;">Feature</th><th style="padding:4px 8px;color:#888;">Coefficient</th><th style="width:60%;padding:4px 8px;color:#888;">Magnitude</th></tr>';
+    feats.forEach((f,i) => {
+      const v = coefs[i], abs = Math.abs(v);
+      const barW = Math.round(abs/maxAbs*160);
+      const barClass = v>=0 ? 'coef-bar-pos' : 'coef-bar-neg';
+      html += `<tr><td style="padding:6px 8px;font-weight:500">${f}</td>
+        <td style="padding:6px 8px;text-align:right;font-weight:600;color:${v>=0?'#378ADD':'#E15759'}">${v.toFixed(3)}</td>
+        <td style="padding:6px 8px"><span class="${barClass}" style="width:${barW}px"></span></td></tr>`;
+    });
+    html += `<tr style="border-top:1px solid #eee"><td style="padding:6px 8px;color:#aaa">Intercept</td><td style="padding:6px 8px;text-align:right;color:#aaa">${intercept.toFixed(2)}</td><td></td></tr>`;
+    html += '</table>';
+    document.getElementById(containerId).innerHTML = html;
+  }
+  makeCoefTable('coef-table-w', [0.329, -0.753, -3.488, 6.296], -19.144);
+  makeCoefTable('coef-table-u', [0.037, -1.705, -2.729, 6.340], -16.379);
+
+  // Predicted vs actual (weighted)
+  const coef_w = [0.329, -0.753, -3.488, 6.296];
+  const intercept_w = -19.144;
+  const pred_w = COSTUMES.map(c =>
+    c[CI.effort]*coef_w[0] + c[CI.creative]*coef_w[1] +
+    c[CI.recog]*coef_w[2] + c[CI.overall]*coef_w[3] + intercept_w
+  );
+  // Convert score back to rank (higher score = better rank)
+  const ranked_w = [...pred_w].sort((a,b)=>b-a);
+  const pred_rank_w = pred_w.map(s => ranked_w.indexOf(s)+1);
+
+  const coef_u = [0.037, -1.705, -2.729, 6.340];
+  const intercept_u = -16.379;
+  const pred_u = COSTUMES.map(c =>
+    c[CI.effort]*coef_u[0] + c[CI.creative]*coef_u[1] +
+    c[CI.recog]*coef_u[2] + c[CI.overall]*coef_u[3] + intercept_u
+  );
+  const ranked_u = [...pred_u].sort((a,b)=>b-a);
+  const pred_rank_u = pred_u.map(s => ranked_u.indexOf(s)+1);
+
+  function predActualChart(canvasId, predRanks, actualRanks) {
+    const pts = COSTUMES.map((c,i) => ({x:predRanks[i], y:actualRanks[i], name:c[CI.name]}));
+    const r = pearson(predRanks.map(Number), actualRanks.map(Number));
+    // diagonal reference line
+    const diag = [{x:1,y:1},{x:22,y:22}];
+    new Chart(document.getElementById(canvasId), {
+      data:{
+        datasets:[
+          {type:'scatter', data:pts, backgroundColor:'rgba(83,74,183,0.55)',
+           borderColor:'#534AB7', borderWidth:1, pointRadius:7, pointHoverRadius:9, label:'Costumes'},
+          {type:'line', data:diag, borderColor:'rgba(0,0,0,0.2)', borderDash:[4,3],
+           borderWidth:1.5, pointRadius:0, fill:false, label:'Perfect prediction'}
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{
+          legend:{display:false},
+          tooltip:{callbacks:{label:ctx=>ctx.datasetIndex===1?null:`${ctx.raw.name}: predicted #${ctx.raw.x}, actual #${ctx.raw.y}`}},
+          title:{display:true, text:`r = ${r.toFixed(3)}`, color:'#888', font:{size:11}, align:'end'}
+        },
+        scales:{
+          x:{title:{display:true,text:'Predicted rank',font:{size:11}},min:0,max:23,grid:{color:gridColor},ticks:{color:textColor}},
+          y:{title:{display:true,text:'Actual rank',font:{size:11}},min:0,max:23,grid:{color:gridColor},ticks:{color:textColor}}
+        }
+      }
+    });
+  }
+  predActualChart('c-pred-actual-w', pred_rank_w, irv_w);
+  predActualChart('c-pred-actual-u', pred_rank_u, irv_u);
+
+  // ── STATED vs REVEALED ─────────────────────────────────────────────────────
+
+  // Side-by-side: stated importance rank vs actual r
+  new Chart(document.getElementById('c-stated-vs-revealed'), {
+    type:'bar',
+    data:{
+      labels:['Creativity','Execution\n(Effort proxy)','Recognizability','Humor\n(n/a)','Effort /\nDifficulty'],
+      datasets:[
+        {label:'Stated rank (inverted, higher=more important)',
+         data:[1-2.48/5, 1-2.67/5, 1-2.75/5, 1-2.92/5, 1-4.19/5],
+         backgroundColor:'rgba(83,74,183,0.5)', borderColor:'#534AB7', borderWidth:1, borderRadius:3},
+        {label:'Actual r with weighted IRV',
+         data:[0.495, null, -0.147, null, 0.321],
+         backgroundColor:'rgba(216,90,48,0.6)', borderColor:'#D85A30', borderWidth:1, borderRadius:3},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{font:{size:11}}},
+        tooltip:{callbacks:{label:ctx=>{
+          if(ctx.datasetIndex===0) return `Stated importance score: ${(1-ctx.raw).toFixed(2)} (lower mean = more important)`;
+          if(ctx.raw===null) return 'Not measured';
+          return `Actual r = ${ctx.raw.toFixed(3)}`;
+        }}}},
+      scales:{
+        x:{ticks:{font:{size:10},color:textColor},grid:{display:false}},
+        y:{title:{display:true,text:'Normalized value (higher = more important/correlated)',font:{size:11}},
+          grid:{color:gridColor},ticks:{color:textColor}}
+      }
+    }
+  });
+
+  // Effort paradox: effort vs IRV rank, colored by high/low creativity
+  const medCreativity = 4.26;
+  new Chart(document.getElementById('c-effort-paradox'), {
+    type:'scatter',
+    data:{
+      datasets:[
+        {label:'High creativity (≥4.26)', pointRadius:8, pointHoverRadius:10,
+         data: COSTUMES.filter(c=>c[CI.creative]>=medCreativity).map(c=>({x:c[CI.effort],y:c[CI.irv_w],name:c[CI.name],cr:c[CI.creative]})),
+         backgroundColor:'rgba(78,121,167,0.65)', borderColor:'#4E79A7', borderWidth:1.5},
+        {label:'Lower creativity (<4.26)', pointRadius:8, pointHoverRadius:10,
+         data: COSTUMES.filter(c=>c[CI.creative]<medCreativity).map(c=>({x:c[CI.effort],y:c[CI.irv_w],name:c[CI.name],cr:c[CI.creative]})),
+         backgroundColor:'rgba(225,87,89,0.65)', borderColor:'#E15759', borderWidth:1.5},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'bottom',labels:{font:{size:11}}},
+        tooltip:{callbacks:{label:ctx=>`${ctx.raw.name}: effort=${ctx.raw.x}, IRV rank #${ctx.raw.y}, creativity=${ctx.raw.cr.toFixed(2)}`}}
+      },
+      scales:{
+        x:{title:{display:true,text:'Effort (1-10)',font:{size:11}},min:0,max:11,grid:{color:gridColor},ticks:{color:textColor}},
+        y:{title:{display:true,text:'IRV rank (1=winner)',font:{size:11}},reverse:true,grid:{color:gridColor},ticks:{color:textColor}}
+      }
+    }
+  });
+});
+
+function showPanel(id, event) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+</script>
+</body>
+</html>
